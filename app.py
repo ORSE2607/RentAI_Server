@@ -13,23 +13,22 @@ def fetch_rent():
         if not area:
             return jsonify({"error": "area parameter is missing"}), 400
 
-        # Dubizzle araması (Google üzerinden)
-        query = f"{area} rent site:dubizzle.com"
-        url = f"https://www.google.com/search?q={query}"
+        # Dubizzle üzerindeki ilan arama linki
+        search_url = f"https://www.dubizzle.com/property-for-rent/apartmentflat/?q={area}"
 
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
         }
-        res = requests.get(url, headers=headers)
+        res = requests.get(search_url, headers=headers, timeout=10)
         soup = BeautifulSoup(res.text, "html.parser")
 
-        # Google sonuçlarından olası fiyatları bul (örnek: AED 80,000, AED 6,500 etc.)
-        prices = re.findall(r"AED\s?[\d,]+", soup.text)
+        # Sayfada fiyatları yakala (örnek: AED 80,000 veya 6,500 AED)
+        prices_text = soup.get_text()
+        prices = re.findall(r"AED\s?[\d,]+", prices_text)
 
         numbers = []
         for p in prices:
             num = int(re.sub(r"[^\d]", "", p))
-            # mantıksız büyük veya küçük değerleri filtrele
             if 1000 < num < 500000:
                 numbers.append(num)
 
@@ -37,7 +36,11 @@ def fetch_rent():
             return jsonify({"area": area, "average_rent": 0, "count": 0})
 
         avg_rent = int(statistics.mean(numbers))
-        return jsonify({"area": area, "average_rent": avg_rent, "count": len(numbers)})
+        return jsonify({
+            "area": area,
+            "average_rent": avg_rent,
+            "count": len(numbers)
+        })
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
