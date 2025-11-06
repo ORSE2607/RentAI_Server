@@ -16,7 +16,7 @@ def fetch_rent():
         area = re.split("[-,]", area)[0].strip()
 
         # Dubizzle üzerindeki arama linki
-        search_url = f"https://www.dubizzle.com/property-for-rent/residential/apartmentflat/?keywords={area}&page=1"
+        search_url = f"https://www.bayut.com/to-rent/apartments/dubai/?q={area}+1+bedroom"
 
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
@@ -42,3 +42,4 @@ def fetch_rent():
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000)
+
