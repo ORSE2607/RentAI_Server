@@ -1,29 +1,43 @@
 from flask import Flask, request, jsonify
-import requests, re
+import requests
 from bs4 import BeautifulSoup
+import re
+import statistics
 
 app = Flask(__name__)
 
 @app.route("/fetch_rent", methods=["GET"])
 def fetch_rent():
     try:
-        area = area.split("-")[0].strip()
-        search_url = f"https://www.bayut.com/to-rent/apartments/dubai/?q={area}+1+bedroom"
+        area = request.args.get("area", "").strip()
+        if not area:
+            return jsonify({"error": "area parameter is missing"}), 400
+
+        # Dubizzle araması (Google üzerinden)
+        query = f"{area} rent site:dubizzle.com"
+        url = f"https://www.google.com/search?q={query}"
 
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
         }
+        res = requests.get(url, headers=headers)
+        soup = BeautifulSoup(res.text, "html.parser")
 
-        response = requests.get(search_url, headers=headers, timeout=10)
-        soup = BeautifulSoup(response.text, "html.parser")
+        # Google sonuçlarından olası fiyatları bul (örnek: AED 80,000, AED 6,500 etc.)
+        prices = re.findall(r"AED\s?[\d,]+", soup.text)
 
-        # Sayfadaki AED fiyatlarını yakala
-        prices = re.findall(r"(\d{4,6})", response.text)
-        prices = [int(p) for p in prices if 2000 < int(p) < 20000]
+        numbers = []
+        for p in prices:
+            num = int(re.sub(r"[^\d]", "", p))
+            # mantıksız büyük veya küçük değerleri filtrele
+            if 1000 < num < 500000:
+                numbers.append(num)
 
-        avg = int(sum(prices) / len(prices)) if prices else 0
+        if not numbers:
+            return jsonify({"area": area, "average_rent": 0, "count": 0})
 
-        return jsonify({"area": area, "average_rent": avg, "count": len(prices)})
+        avg_rent = int(statistics.mean(numbers))
+        return jsonify({"area": area, "average_rent": avg_rent, "count": len(numbers)})
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
