@@ -1,7 +1,6 @@
 from flask import Flask, request, jsonify
-import requests
+import requests, re
 from bs4 import BeautifulSoup
-import re
 import statistics
 
 app = Flask(__name__)
@@ -13,8 +12,11 @@ def fetch_rent():
         if not area:
             return jsonify({"error": "area parameter is missing"}), 400
 
-        # Dubizzle üzerindeki ilan arama linki
-        search_url = f"https://www.dubizzle.com/property-for-rent/apartmentflat/?q={area}"
+        # "Murjan 5 - JBR" gibi ifadelerde yalnızca ilk kısmı al
+        area = re.split(r"[-–,]", area)[0].strip()
+
+        # Bayut üzerinde arama linki
+        search_url = f"https://www.bayut.com/to-rent/apartments/dubai/?q={area}+1+bedroom"
 
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
@@ -22,24 +24,19 @@ def fetch_rent():
         res = requests.get(search_url, headers=headers, timeout=10)
         soup = BeautifulSoup(res.text, "html.parser")
 
-        # Sayfada fiyatları yakala (örnek: AED 80,000 veya 6,500 AED)
-        prices_text = soup.get_text()
-        prices = re.findall(r"AED\s?[\d,]+", prices_text)
+        # Sayfa içeriğinde fiyatları bul
+        text = soup.get_text()
+        prices = re.findall(r"AED\s?([\d,]+)", text)
+        prices = [int(p.replace(",", "")) for p in prices if 1000 < int(p.replace(",", "")) < 200000]
 
-        numbers = []
-        for p in prices:
-            num = int(re.sub(r"[^\d]", "", p))
-            if 1000 < num < 500000:
-                numbers.append(num)
-
-        if not numbers:
+        if not prices:
             return jsonify({"area": area, "average_rent": 0, "count": 0})
 
-        avg_rent = int(statistics.mean(numbers))
+        avg_rent = int(statistics.mean(prices))
         return jsonify({
             "area": area,
             "average_rent": avg_rent,
-            "count": len(numbers)
+            "count": len(prices)
         })
 
     except Exception as e:
